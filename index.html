@@ -190,7 +190,6 @@
         <h3 class="text-2xl md:text-3xl font-geist font-light tracking-tight text-center mb-2 text-neutral-100">Frequently Asked Questions</h3>
         
         <div class="flex flex-col border-t border-zinc-800" id="accordion-container">
-            
             <!-- Item 1 -->
             <div class="border-b group border-zinc-800">
                 <button class="w-full flex justify-between items-center py-6 text-left focus:outline-none" onclick="toggleAccordion(this)">
@@ -205,7 +204,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Item 2 -->
             <div class="border-b group border-zinc-800">
                 <button class="w-full flex justify-between items-center py-6 text-left focus:outline-none" onclick="toggleAccordion(this)">
@@ -220,7 +218,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Item 3 -->
             <div class="border-b group border-zinc-800">
                 <button class="w-full flex justify-between items-center py-6 text-left focus:outline-none" onclick="toggleAccordion(this)">
@@ -235,7 +232,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Item 4 -->
             <div class="border-b group border-zinc-800">
                 <button class="w-full flex justify-between items-center py-6 text-left focus:outline-none" onclick="toggleAccordion(this)">
@@ -250,7 +246,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- Item 5 -->
             <div class="border-b group border-zinc-800">
                 <button class="w-full flex justify-between items-center py-6 text-left focus:outline-none" onclick="toggleAccordion(this)">
@@ -265,7 +260,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </section>
 
@@ -314,8 +308,21 @@
         </div>
     </section>
 
+    <!-- Minigame Section -->
+    <section class="w-full max-w-3xl z-10 flex flex-col gap-6 reveal-section px-4 sm:px-0 mb-8">
+        <div class="text-center mb-2 px-4">
+            <h3 class="text-2xl font-geist font-light tracking-tight text-neutral-100">Take a breather.</h3>
+            <p class="text-sm font-inter font-light text-neutral-500 mt-2">Click inside the window and press Space to jump. Dodge the blocks.</p>
+        </div>
+        
+        <div class="border rounded-[2rem] p-2 sm:p-4 shadow-xl backdrop-blur-2xl bg-neutral-900/40 border-zinc-800 flex justify-center items-center overflow-hidden">
+            <!-- Canvas is 800x240 internally but scaled to fit container via Tailwind -->
+            <canvas id="minigame-canvas" width="800" height="240" tabindex="0" class="w-full h-auto bg-black border border-zinc-800 rounded-xl cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/30 transition-shadow"></canvas>
+        </div>
+    </section>
+
     <!-- Footer Space -->
-    <footer class="w-full text-center pb-8 z-10 text-xs font-geist font-light reveal-section text-neutral-600">
+    <footer class="w-full text-center pb-8 z-10 text-xs font-geist font-light reveal-section text-neutral-600 mt-auto">
         © 2024 Kunal Suresh. All rights reserved.
     </footer>
 
@@ -509,6 +516,205 @@
             emailInput.classList.remove('border-red-400', 'focus:ring-red-500/20');
             emailError.classList.add('hidden');
         });
+
+        // Minigame Logic (Endless Runner)
+        (() => {
+            const canvas = document.getElementById('minigame-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            let state = 'start'; // 'start', 'playing', 'over'
+            let score = 0;
+            let highScore = 0;
+            let frameCount = 0;
+            let gameReq;
+            let currentSpeed = 5;
+
+            const player = {
+                x: 60,
+                y: 190,
+                size: 24,
+                dy: 0,
+                gravity: 0.6,
+                jumpPower: -10,
+                grounded: false
+            };
+
+            let obstacles = [];
+
+            // Drawing Text Helper
+            function drawText(text, x, y, size, align = 'left', color = '#ffffff') {
+                ctx.fillStyle = color;
+                ctx.font = `300 ${size}px "Inter", sans-serif`;
+                ctx.textAlign = align;
+                ctx.fillText(text, x, y);
+            }
+
+            function resetGame() {
+                player.y = 190;
+                player.dy = 0;
+                obstacles = [];
+                score = 0;
+                frameCount = 0;
+                currentSpeed = 5;
+                state = 'playing';
+                gameLoop();
+            }
+
+            function jump() {
+                if (state === 'start' || state === 'over') {
+                    resetGame();
+                } else if (player.grounded) {
+                    player.dy = player.jumpPower;
+                    player.grounded = false;
+                }
+            }
+
+            // Input handlers
+            canvas.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                canvas.focus();
+                jump();
+            });
+
+            canvas.addEventListener('keydown', (e) => {
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    jump();
+                }
+            });
+
+            function gameLoop() {
+                if (state !== 'playing') return;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Update Player
+                player.dy += player.gravity;
+                player.y += player.dy;
+
+                // Floor collision
+                const groundY = canvas.height - 26; // 240 - 26 = 214
+                if (player.y + player.size >= groundY) {
+                    player.y = groundY - player.size;
+                    player.dy = 0;
+                    player.grounded = true;
+                } else {
+                    player.grounded = false;
+                }
+
+                // Draw Floor Line
+                ctx.fillStyle = '#27272a'; // zinc-800
+                ctx.fillRect(0, groundY, canvas.width, 2);
+
+                // Speed increment
+                if (frameCount % 600 === 0 && currentSpeed < 12) {
+                    currentSpeed += 0.5;
+                }
+
+                // Spawn Obstacles randomly
+                if (frameCount % Math.max(60, Math.floor(100 - currentSpeed * 2)) === 0) {
+                    // Randomize width and gap slightly
+                    let obsWidth = 20 + Math.random() * 15;
+                    let obsHeight = 24 + Math.random() * 20;
+                    obstacles.push({
+                        x: canvas.width,
+                        y: groundY - obsHeight,
+                        w: obsWidth,
+                        h: obsHeight,
+                        passed: false
+                    });
+                }
+
+                // Update & Draw Obstacles
+                ctx.fillStyle = '#a1a1aa'; // neutral-400
+                for (let i = 0; i < obstacles.length; i++) {
+                    let obs = obstacles[i];
+                    obs.x -= currentSpeed;
+
+                    // Collision detection (AABB)
+                    if (player.x < obs.x + obs.w &&
+                        player.x + player.size > obs.x &&
+                        player.y < obs.y + obs.h &&
+                        player.y + player.size > obs.y) {
+                        
+                        // Slightly forgiving hitbox
+                        const margin = 4;
+                        if (player.x + margin < obs.x + obs.w &&
+                            player.x + player.size - margin > obs.x &&
+                            player.y + margin < obs.y + obs.h &&
+                            player.y + player.size - margin > obs.y) {
+                                state = 'over';
+                                if (score > highScore) highScore = score;
+                        }
+                    }
+
+                    // Score increment
+                    if (!obs.passed && obs.x + obs.w < player.x) {
+                        score += 10;
+                        obs.passed = true;
+                    }
+
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                }
+
+                // Remove off-screen obstacles
+                obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+                // Draw Player (Glowing Violet Cube)
+                ctx.fillStyle = '#8b5cf6'; // violet-500
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#8b5cf6';
+                ctx.fillRect(player.x, player.y, player.size, player.size);
+                
+                // Reset shadow for UI
+                ctx.shadowBlur = 0;
+
+                // Draw Score
+                drawText(`SCORE: ${score}`, 20, 30, 14, 'left', '#a1a1aa');
+                drawText(`HI: ${highScore}`, canvas.width - 20, 30, 14, 'right', '#a1a1aa');
+
+                frameCount++;
+                
+                if (state === 'over') {
+                    // Dark overlay
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    drawText('GAME OVER', canvas.width / 2, canvas.height / 2 - 10, 24, 'center', '#ffffff');
+                    drawText('Click or Press Space to Restart', canvas.width / 2, canvas.height / 2 + 20, 14, 'center', '#a1a1aa');
+                } else {
+                    gameReq = requestAnimationFrame(gameLoop);
+                }
+            }
+
+            // Initial Draw Function
+            function initDraw() {
+                // Clear and base draw
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#27272a';
+                ctx.fillRect(0, canvas.height - 26, canvas.width, 2);
+                
+                // Draw player resting
+                ctx.fillStyle = '#8b5cf6';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#8b5cf6';
+                ctx.fillRect(player.x, canvas.height - 26 - player.size, player.size, player.size);
+                ctx.shadowBlur = 0;
+
+                // Dark overlay
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                drawText('Click to Start', canvas.width / 2, canvas.height / 2 + 5, 18, 'center', '#ffffff');
+            }
+
+            // Make sure fonts are loaded before first draw
+            document.fonts.ready.then(() => {
+                initDraw();
+            });
+
+        })();
     </script>
 
 </body></html>
